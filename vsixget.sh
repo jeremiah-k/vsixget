@@ -124,25 +124,87 @@ filepath="${download_dir}/${filename}"
 # Try with linux-x64 first, then fallback to universal
 echo "Attempting to download ${publisher}.${extension}${version:+ version $version}..."
 
+# Function to verify the downloaded file is a valid VSIX (ZIP) file
+verify_vsix() {
+    local file="$1"
+
+    # Check if file exists and is not empty
+    if [[ ! -f "$file" || ! -s "$file" ]]; then
+        echo "Error: Downloaded file is empty or does not exist."
+        return 1
+    fi
+
+    # Check if the file is a valid ZIP archive
+    if command -v unzip &> /dev/null; then
+        if ! unzip -t "$file" &> /dev/null; then
+            echo "Error: Downloaded file is not a valid VSIX (ZIP) file."
+            return 1
+        fi
+    else
+        # If unzip is not available, use hexdump to check for ZIP signature
+        if ! hexdump -n 4 -e '4/1 "%02X"' "$file" | grep -q "504B0304"; then
+            echo "Error: Downloaded file does not have a valid ZIP signature."
+            return 1
+        fi
+    fi
+
+    return 0
+}
+
+# Function to download with better error handling
+download_file() {
+    local url="$1"
+    local output="$2"
+    local description="$3"
+
+    echo "Trying $description..."
+    echo "URL: $url"
+
+    # Create a temporary file for the download
+    local temp_file="${output}.tmp"
+
+    # Remove any existing temporary file
+    if [[ -f "$temp_file" ]]; then
+        rm "$temp_file"
+    fi
+
+    # Download with curl, showing progress
+    if curl -f -L --progress-bar -o "$temp_file" "$url"; then
+        # Verify the downloaded file
+        if verify_vsix "$temp_file"; then
+            # Move the temporary file to the final location
+            mv "$temp_file" "$output"
+            echo "Success! Downloaded to: $output"
+            return 0
+        else
+            # Remove the invalid file
+            rm "$temp_file"
+            echo "Download completed but file verification failed."
+            return 1
+        fi
+    else
+        echo "Download failed with curl exit code: $?"
+        # Remove the failed download if it exists
+        if [[ -f "$temp_file" ]]; then
+            rm "$temp_file"
+        fi
+        return 1
+    fi
+}
+
 # Try platform-specific URL first
 platform_url="${base}?targetPlatform=linux-x64"
-echo "Trying platform-specific URL..."
-if curl -f -L -o "$filepath" "$platform_url" 2>/dev/null; then
-    echo "Success! Downloaded to: $filepath"
+if download_file "$platform_url" "$filepath" "platform-specific URL (linux-x64)"; then
     exit 0
 fi
 
 # Fallback to universal package
 echo "Fallback: trying universal package..."
-if curl -f -L -o "$filepath" "$base" 2>/dev/null; then
-    echo "Success! Downloaded to: $filepath"
+if download_file "$base" "$filepath" "universal package"; then
     exit 0
 fi
 
 # If we get here, both attempts failed
 echo "Error: Failed to download extension. Please check the extension ID and version."
-# Clean up partial download if it exists
-if [[ -f "$filepath" ]]; then
-    rm "$filepath"
-fi
+echo "You might want to try downloading manually from the marketplace."
 exit 1
