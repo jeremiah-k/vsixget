@@ -102,7 +102,11 @@ if [[ -z "$version" ]]; then
     version_info=$(curl -s "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/${publisher}/vsextensions/${extension}")
 
     # Extract version from the response if possible
-    if [[ "$version_info" =~ \"version\":\"([^\"]+)\" ]]; then
+    if [[ "$version_info" =~ \"versions\":\[\{\"version\":\"([^\"]+)\" ]]; then
+        actual_version="${BASH_REMATCH[1]}"
+        echo "Latest version: $actual_version"
+        version="$actual_version"
+    elif [[ "$version_info" =~ \"version\":\"([^\"]+)\" ]]; then
         actual_version="${BASH_REMATCH[1]}"
         echo "Latest version: $actual_version"
         version="$actual_version"
@@ -168,26 +172,55 @@ download_file() {
         rm "$temp_file"
     fi
 
-    # Download with curl, showing progress
-    if curl -f -L --progress-bar -o "$temp_file" "$url"; then
+    # Create a temporary file for the response headers
+    local headers_file=$(mktemp)
+
+    # Download with curl, showing progress and saving headers
+    # Note: We're not using -f here to allow handling of error responses
+    if curl -L -D "$headers_file" --progress-bar -o "$temp_file" "$url"; then
         # Verify the downloaded file
         if verify_vsix "$temp_file"; then
             # Move the temporary file to the final location
             mv "$temp_file" "$output"
             echo "Success! Downloaded to: $output"
+            rm "$headers_file"
             return 0
         else
             # Remove the invalid file
             rm "$temp_file"
             echo "Download completed but file verification failed."
+
+            # Check if we got a JSON error response
+            if grep -q "Content-Type: application/json" "$headers_file"; then
+                echo "Server returned a JSON response instead of a VSIX file:"
+                cat "$temp_file" | head -20  # Show first 20 lines of the response
+            fi
+
+            rm "$headers_file"
             return 1
         fi
     else
-        echo "Download failed with curl exit code: $?"
+        local curl_exit_code=$?
+        echo "Download failed with curl exit code: $curl_exit_code"
+
+        # Check if we have an HTTP error status code
+        if grep -q "HTTP/" "$headers_file"; then
+            local status_code=$(grep "HTTP/" "$headers_file" | tail -1 | awk '{print $2}')
+            echo "HTTP Status Code: $status_code"
+
+            # If we have a response body, show it
+            if [[ -f "$temp_file" && -s "$temp_file" ]]; then
+                echo "Response body:"
+                cat "$temp_file" | head -20  # Show first 20 lines of the response
+            fi
+        fi
+
         # Remove the failed download if it exists
         if [[ -f "$temp_file" ]]; then
             rm "$temp_file"
         fi
+
+        rm "$headers_file"
         return 1
     fi
 }
