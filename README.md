@@ -26,12 +26,6 @@ source .venv/bin/activate
 
 # Install required dependencies
 pip install requests
-
-# Optional: Add to PATH (create symlink in user's local bin)
-mkdir -p ~/.local/bin
-ln -sf $(pwd)/vsixget.py ~/.local/bin/vsixget
-# Make sure ~/.local/bin is in your PATH (add to ~/.bashrc or ~/.zshrc if needed)
-# export PATH="$HOME/.local/bin:$PATH"
 ```
 
 ## Usage
