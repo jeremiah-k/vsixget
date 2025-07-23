@@ -71,7 +71,7 @@ def check_network_connectivity():
     try:
         response = requests.get("https://marketplace.visualstudio.com", timeout=10)
         return response.status_code == 200
-    except Exception:
+    except requests.exceptions.RequestException:
         return False
 
 
@@ -91,15 +91,49 @@ def download_extension(publisher, extension, version, directory):
     if not version:
         print("No version specified, fetching latest...")
         try:
-            # Try to get the latest version information
-            api_url = f"https://marketplace.visualstudio.com/_apis/public/gallery/publishers/{publisher}/vsextensions/{extension}"
-            response = requests.get(api_url, timeout=30)
+            # Try to get the latest version information using the extensionquery API
+            api_url = "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery"
+            headers = {
+                "Content-Type": "application/json",
+                "Accept": "application/json;api-version=3.0-preview.1",
+            }
+            payload = {
+                "filters": [
+                    {
+                        "criteria": [
+                            {"filterType": 7, "value": f"{publisher}.{extension}"}
+                        ]
+                    }
+                ],
+                "flags": 914,
+            }
+            response = requests.post(api_url, json=payload, headers=headers, timeout=30)
             if response.status_code == 200:
                 data = response.json()
-                if "versions" in data and len(data["versions"]) > 0:
-                    actual_version = data["versions"][0]["version"]
-                    print(f"Latest version: {actual_version}")
-                    version = actual_version
+                if (
+                    data.get("results")
+                    and len(data["results"]) > 0
+                    and data["results"][0].get("extensions")
+                    and len(data["results"][0]["extensions"]) > 0
+                    and data["results"][0]["extensions"][0].get("versions")
+                    and len(data["results"][0]["extensions"][0]["versions"]) > 0
+                ):
+
+                    # Find the first version without a targetPlatform (universal version)
+                    versions = data["results"][0]["extensions"][0]["versions"]
+                    universal_version = None
+                    for version_info in versions:
+                        if "targetPlatform" not in version_info:
+                            universal_version = version_info["version"]
+                            break
+
+                    if universal_version:
+                        actual_version = universal_version
+                        print(f"Latest version: {actual_version}")
+                    else:
+                        # Fallback to first version if no universal version found
+                        actual_version = versions[0]["version"]
+                        print(f"Latest version: {actual_version}")
                 else:
                     print(
                         "Could not determine latest version, using 'latest' in filename"
@@ -108,11 +142,15 @@ def download_extension(publisher, extension, version, directory):
             else:
                 print("Could not fetch version information, using 'latest' in filename")
                 actual_version = "latest"
-        except Exception as e:
+        except requests.exceptions.RequestException as e:
             print(f"Error fetching version information: {e}")
             actual_version = "latest"
 
-        base_url = f"https://marketplace.visualstudio.com/_apis/public/gallery/publishers/{publisher}/vsextensions/{extension}/latest/vspackage"
+        # Use specific version URL if we detected the version, otherwise use latest
+        if actual_version != "latest":
+            base_url = f"https://marketplace.visualstudio.com/_apis/public/gallery/publishers/{publisher}/vsextensions/{extension}/{actual_version}/vspackage"
+        else:
+            base_url = f"https://marketplace.visualstudio.com/_apis/public/gallery/publishers/{publisher}/vsextensions/{extension}/latest/vspackage"
     else:
         actual_version = version
         base_url = f"https://marketplace.visualstudio.com/_apis/public/gallery/publishers/{publisher}/vsextensions/{extension}/{version}/vspackage"
@@ -183,17 +221,19 @@ def download_extension(publisher, extension, version, directory):
                                 f.write(chunk)
                                 downloaded_size += len(chunk)
 
-                                # Show progress every MB
-                                if (
-                                    total_size > 0
-                                    and downloaded_size % (1024 * 1024) == 0
-                                ):
+                                # Show progress on each chunk
+                                if total_size > 0:
                                     progress_mb = downloaded_size / (1024 * 1024)
                                     total_mb = total_size / (1024 * 1024)
                                     percentage = (downloaded_size / total_size) * 100
                                     print(
-                                        f"Downloaded {progress_mb:.2f} MB of {total_mb:.2f} MB ({percentage:.1f}%)"
+                                        f"Downloaded {progress_mb:.2f} MB of {total_mb:.2f} MB ({percentage:.1f}%)",
+                                        end="\r",
                                     )
+
+                    # Add newline after download completes
+                    if total_size > 0:
+                        print()
 
                     # Verify the downloaded file
                     if verify_vsix(temp_path):
@@ -221,7 +261,7 @@ def download_extension(publisher, extension, version, directory):
                         time.sleep(attempt)
                     continue
 
-            except Exception as e:
+            except requests.exceptions.RequestException as e:
                 print(f"Download error: {e}")
                 # Clean up partial download if it exists
                 if os.path.exists(temp_path):
