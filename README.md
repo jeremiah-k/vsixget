@@ -20,6 +20,10 @@ A Python tool for downloading VSIX files from the Visual Studio Marketplace.
 # Make the script executable
 chmod +x vsixget.py
 
+# Create and activate a virtual environment (recommended)
+python -m venv .venv
+source .venv/bin/activate
+
 # Install required dependencies
 pip install requests
 
