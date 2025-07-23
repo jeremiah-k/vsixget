@@ -17,6 +17,7 @@ def parse_args():
         epilog="""
 Examples:
   %(prog)s ms-python.python
+  %(prog)s --latest ms-python.python
   %(prog)s -v 2023.4.1 ms-python.python
   %(prog)s -d ~/Downloads https://marketplace.visualstudio.com/items?itemName=ms-python.python
         """,
@@ -31,6 +32,12 @@ Examples:
         "-v",
         "--version",
         help="Extension version (if not specified, latest version will be used)",
+    )
+
+    parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Download the latest version without prompting (same as not specifying a version)",
     )
 
     parser.add_argument(
@@ -301,9 +308,13 @@ def main():
         print("Please use format 'publisher.extension' or a marketplace URL")
         sys.exit(1)
 
-    # If version is not provided and we're in interactive mode, prompt for it
+    # Handle version specification
     version = args.version
-    if not version and sys.stdin.isatty():
+    if args.latest:
+        # --latest flag overrides any version specification
+        version = None
+    elif not version and sys.stdin.isatty():
+        # Only prompt if not using --latest flag and in interactive mode
         version = input("Enter version (leave blank for latest): ")
 
     success = download_extension(publisher, extension, version, args.directory)
