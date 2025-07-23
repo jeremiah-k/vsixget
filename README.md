@@ -27,8 +27,11 @@ source .venv/bin/activate
 # Install required dependencies
 pip install requests
 
-# Optional: Move to a directory in your PATH
-sudo cp vsixget.py /usr/local/bin/vsixget
+# Optional: Add to PATH (create symlink in user's local bin)
+mkdir -p ~/.local/bin
+ln -sf $(pwd)/vsixget.py ~/.local/bin/vsixget
+# Make sure ~/.local/bin is in your PATH (add to ~/.bashrc or ~/.zshrc if needed)
+# export PATH="$HOME/.local/bin:$PATH"
 ```
 
 ## Usage
