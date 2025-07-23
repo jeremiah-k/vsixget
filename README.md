@@ -8,7 +8,11 @@ A Python tool for downloading VSIX files from the Visual Studio Marketplace.
 - Support for both direct extension IDs and marketplace URLs
 - Specify version or download the latest
 - Choose download directory
+- Network connectivity checking before downloads
+- Automatic retry logic with progressive delays
+- Real-time download progress with MB and percentage indicators
 - Reliable file integrity verification
+- Universal package downloads for maximum compatibility
 
 ## Installation
 
