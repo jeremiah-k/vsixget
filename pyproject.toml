@@ -44,4 +44,7 @@ Issues = "https://github.com/jeremiah-k/vsixget/issues"
 vsixget = "vsixget:main"
 
 [tool.setuptools]
-py-modules = ["vsixget"]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

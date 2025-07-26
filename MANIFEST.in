@@ -1,4 +1,4 @@
 include README.md
 include LICENSE
 include pyproject.toml
-include vsixget.py
+recursive-include src/vsixget *.py

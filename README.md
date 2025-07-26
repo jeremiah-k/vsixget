@@ -18,13 +18,22 @@ A Python tool for downloading VSIX files from the Visual Studio Marketplace.
 
 ### From PyPI (Recommended)
 
+**Using pipx (recommended for CLI tools):**
+```bash
+# Install pipx if you don't have it
+# See: https://pipx.pypa.io/stable/installation/
+
+# Install vsixget with pipx
+pipx install vsixget
+```
+
+**Using pip:**
 ```bash
 # Install from PyPI
 pip install vsixget
-
-# Or with pipx for isolated installation
-pipx install vsixget
 ```
+
+> **Note:** [pipx](https://pipx.pypa.io/stable/) is recommended for installing CLI tools as it creates isolated environments and makes the tools available globally. See the [pipx installation guide](https://pipx.pypa.io/stable/installation/) for platform-specific instructions.
 
 ### From Source
 
