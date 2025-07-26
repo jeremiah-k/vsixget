@@ -98,11 +98,7 @@ def version_compare(version1, version2):
     Uses packaging.version.parse for robust version parsing that handles
     pre-releases and follows PEP 440 standards.
     """
-    try:
-        return parse_version(version1) < parse_version(version2)
-    except Exception:
-        # Fallback to string comparison if version parsing fails
-        return version1 < version2
+    return parse_version(version1) < parse_version(version2)
 
 
 def check_for_updates():
@@ -238,7 +234,7 @@ def download_extension(publisher, extension, version, directory):
         except zipfile.BadZipFile:
             print("Error: Downloaded file is not a valid VSIX (ZIP) file.")
             return False
-        except Exception as e:
+        except OSError as e:
             print(f"Error verifying file: {e}")
             return False
 
@@ -251,7 +247,7 @@ def download_extension(publisher, extension, version, directory):
                 for chunk in iter(lambda: f.read(4096), b""):
                     sha256_hash.update(chunk)
             return sha256_hash.hexdigest()
-        except Exception as e:
+        except OSError as e:
             print(f"Error calculating file hash: {e}")
             return None
 
