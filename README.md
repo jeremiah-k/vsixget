@@ -16,7 +16,23 @@ A Python tool for downloading VSIX files from the Visual Studio Marketplace.
 
 ## Installation
 
+### From PyPI (Recommended)
+
 ```bash
+# Install from PyPI
+pip install vsixget
+
+# Or with pipx for isolated installation
+pipx install vsixget
+```
+
+### From Source
+
+```bash
+# Clone the repository
+git clone https://github.com/jeremiah-k/vsixget.git
+cd vsixget
+
 # Make the script executable
 chmod +x vsixget.py
 
@@ -32,27 +48,33 @@ pip install requests
 
 ```bash
 # Basic usage
-./vsixget.py publisher.extension
+vsixget publisher.extension
+
+# Download latest version without prompting
+vsixget --latest publisher.extension
 
 # Specify version
-./vsixget.py -v 1.2.3 publisher.extension
+vsixget -v 1.2.3 publisher.extension
 
 # Specify download directory
-./vsixget.py -d ~/Downloads publisher.extension
+vsixget -d ~/Downloads publisher.extension
 
 # Download from marketplace URL
-./vsixget.py https://marketplace.visualstudio.com/items?itemName=publisher.extension
+vsixget https://marketplace.visualstudio.com/items?itemName=publisher.extension
 ```
 
 ## Examples
 
 ```bash
 # Download the Python extension
-./vsixget.py ms-python.python
+vsixget ms-python.python
+
+# Download latest version without prompting
+vsixget --latest ms-python.python
 
 # Download a specific version of the Python extension
-./vsixget.py -v 2023.4.1 ms-python.python
+vsixget -v 2023.4.1 ms-python.python
 
 # Download the Augment extension to the Downloads directory
-./vsixget.py -d ~/Downloads augment.vscode-augment
+vsixget -d ~/Downloads augment.vscode-augment
 ```
