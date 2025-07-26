@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vsixget"
+dynamic = ["version"]
+description = "A Python tool for downloading VSIX files from the Visual Studio Marketplace"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+  { name = "Jeremiah K", email = "17190268+jeremiah-k@users.noreply.github.com" },
+]
+maintainers = [
+  { name = "Jeremiah K", email = "17190268+jeremiah-k@users.noreply.github.com" },
+]
+keywords = ["vscode", "extensions", "vsix", "marketplace", "download"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Tools",
+  "Topic :: Utilities",
+]
+requires-python = ">=3.8"
+dependencies = ["requests>=2.25.0", "packaging"]
+
+[project.urls]
+Homepage = "https://github.com/jeremiah-k/vsixget"
+Repository = "https://github.com/jeremiah-k/vsixget"
+Issues = "https://github.com/jeremiah-k/vsixget/issues"
+
+[project.scripts]
+vsixget = "vsixget:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.dynamic]
+version = { attr = "vsixget.__version__" }
