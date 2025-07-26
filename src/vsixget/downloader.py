@@ -5,6 +5,7 @@ import os
 import re
 import sys
 import time
+import zipfile
 from urllib.parse import parse_qs, urlparse
 
 import requests
@@ -91,8 +92,9 @@ def check_network_connectivity():
 
 def version_compare(version1, version2):
     """Compare two version strings. Returns True if version1 < version2."""
+
     def normalize_version(v):
-        return [int(x) for x in re.sub(r'[^\d.]', '', v).split('.') if x.isdigit()]
+        return [int(x) for x in re.sub(r"[^\d.]", "", v).split(".") if x.isdigit()]
 
     v1_parts = normalize_version(version1)
     v2_parts = normalize_version(version2)
@@ -110,15 +112,16 @@ def check_for_updates():
     try:
         # Get the latest release from GitHub API
         response = requests.get(
-            "https://api.github.com/repos/jeremiah-k/vsixget/releases/latest",
-            timeout=5
+            "https://api.github.com/repos/jeremiah-k/vsixget/releases/latest", timeout=5
         )
         if response.status_code == 200:
             data = response.json()
             latest_version = data.get("tag_name", "").lstrip("v")
 
             if latest_version and version_compare(__version__, latest_version):
-                print(f"📦 A newer version of vsixget is available: {latest_version} (current: {__version__})")
+                print(
+                    f"📦 A newer version of vsixget is available: {latest_version} (current: {__version__})"
+                )
                 print("💡 Update with: pipx upgrade vsixget")
                 print()
 
@@ -162,35 +165,37 @@ def download_extension(publisher, extension, version, directory):
             response = requests.post(api_url, json=payload, headers=headers, timeout=30)
             if response.status_code == 200:
                 data = response.json()
-                if (
-                    data.get("results")
-                    and len(data["results"]) > 0
-                    and data["results"][0].get("extensions")
-                    and len(data["results"][0]["extensions"]) > 0
-                    and data["results"][0]["extensions"][0].get("versions")
-                    and len(data["results"][0]["extensions"][0]["versions"]) > 0
-                ):
 
-                    # Find the first version without a targetPlatform (universal version)
-                    versions = data["results"][0]["extensions"][0]["versions"]
-                    universal_version = None
-                    for version_info in versions:
-                        if "targetPlatform" not in version_info:
-                            universal_version = version_info["version"]
-                            break
-
-                    if universal_version:
-                        actual_version = universal_version
-                        print(f"Latest version: {actual_version}")
-                    else:
-                        # Fallback to first version if no universal version found
-                        actual_version = versions[0]["version"]
-                        print(f"Latest version: {actual_version}")
-                else:
-                    print(
-                        "Could not determine latest version, using 'latest' in filename"
-                    )
+                # Extract nested data with safe navigation
+                results = data.get("results", [])
+                if not results:
+                    print("Could not determine latest version, using 'latest' in filename")
                     actual_version = "latest"
+                else:
+                    extensions = results[0].get("extensions", [])
+                    if not extensions:
+                        print("Could not determine latest version, using 'latest' in filename")
+                        actual_version = "latest"
+                    else:
+                        versions = extensions[0].get("versions", [])
+                        if not versions:
+                            print("Could not determine latest version, using 'latest' in filename")
+                            actual_version = "latest"
+                        else:
+                            # Find the first version without a targetPlatform (universal version)
+                            universal_version = None
+                            for version_info in versions:
+                                if "targetPlatform" not in version_info:
+                                    universal_version = version_info["version"]
+                                    break
+
+                            if universal_version:
+                                actual_version = universal_version
+                                print(f"Latest version: {actual_version}")
+                            else:
+                                # Fallback to first version if no universal version found
+                                actual_version = versions[0]["version"]
+                                print(f"Latest version: {actual_version}")
             else:
                 print("Could not fetch version information, using 'latest' in filename")
                 actual_version = "latest"
@@ -221,8 +226,6 @@ def download_extension(publisher, extension, version, directory):
                 return False
 
             # Try to open the file as a ZIP archive
-            import zipfile
-
             with zipfile.ZipFile(file_path, "r") as zip_ref:
                 # Try to read the file list to verify it's a valid ZIP
                 zip_ref.namelist()
