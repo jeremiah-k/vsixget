@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import hashlib
 import os
 import re
 import sys
@@ -9,6 +10,7 @@ import zipfile
 from urllib.parse import parse_qs, urlparse
 
 import requests
+from packaging.version import parse as parse_version
 
 # Import version from package __init__.py
 try:
@@ -91,20 +93,16 @@ def check_network_connectivity():
 
 
 def version_compare(version1, version2):
-    """Compare two version strings. Returns True if version1 < version2."""
+    """Compare two version strings. Returns True if version1 < version2.
 
-    def normalize_version(v):
-        return [int(x) for x in re.sub(r"[^\d.]", "", v).split(".") if x.isdigit()]
-
-    v1_parts = normalize_version(version1)
-    v2_parts = normalize_version(version2)
-
-    # Pad shorter version with zeros
-    max_len = max(len(v1_parts), len(v2_parts))
-    v1_parts.extend([0] * (max_len - len(v1_parts)))
-    v2_parts.extend([0] * (max_len - len(v2_parts)))
-
-    return v1_parts < v2_parts
+    Uses packaging.version.parse for robust version parsing that handles
+    pre-releases and follows PEP 440 standards.
+    """
+    try:
+        return parse_version(version1) < parse_version(version2)
+    except Exception:
+        # Fallback to string comparison if version parsing fails
+        return version1 < version2
 
 
 def check_for_updates():
@@ -132,6 +130,9 @@ def check_for_updates():
 
 def download_extension(publisher, extension, version, directory):
     """Download the extension from the marketplace."""
+    # Expand user directory path (handle ~ in paths)
+    directory = os.path.expanduser(directory)
+
     # Create directory if it doesn't exist
     os.makedirs(directory, exist_ok=True)
 
@@ -166,42 +167,27 @@ def download_extension(publisher, extension, version, directory):
             if response.status_code == 200:
                 data = response.json()
 
-                # Extract nested data with safe navigation
-                results = data.get("results", [])
-                if not results:
-                    print(
-                        "Could not determine latest version, using 'latest' in filename"
-                    )
-                    actual_version = "latest"
-                else:
-                    extensions = results[0].get("extensions", [])
-                    if not extensions:
-                        print(
-                            "Could not determine latest version, using 'latest' in filename"
-                        )
-                        actual_version = "latest"
-                    else:
-                        versions = extensions[0].get("versions", [])
-                        if not versions:
-                            print(
-                                "Could not determine latest version, using 'latest' in filename"
-                            )
-                            actual_version = "latest"
-                        else:
-                            # Find the first version without a targetPlatform (universal version)
-                            universal_version = None
-                            for version_info in versions:
-                                if "targetPlatform" not in version_info:
-                                    universal_version = version_info["version"]
-                                    break
+                # Extract nested data with try/except for cleaner error handling
+                actual_version = "latest"
+                try:
+                    versions = data["results"][0]["extensions"][0]["versions"]
 
-                            if universal_version:
-                                actual_version = universal_version
-                                print(f"Latest version: {actual_version}")
-                            else:
-                                # Fallback to first version if no universal version found
-                                actual_version = versions[0]["version"]
-                                print(f"Latest version: {actual_version}")
+                    # Find the first version without a targetPlatform (universal version)
+                    universal_version = next(
+                        (v["version"] for v in versions if "targetPlatform" not in v),
+                        None,
+                    )
+
+                    if universal_version:
+                        actual_version = universal_version
+                    elif versions:
+                        # Fallback to the first version if no universal version is found
+                        actual_version = versions[0]["version"]
+
+                    print(f"Latest version: {actual_version}")
+
+                except (KeyError, IndexError, TypeError):
+                    print("Could not determine latest version, using 'latest' in filename")
             else:
                 print("Could not fetch version information, using 'latest' in filename")
                 actual_version = "latest"
@@ -223,16 +209,29 @@ def download_extension(publisher, extension, version, directory):
     filepath = os.path.join(directory, filename)
 
     # Function to verify the downloaded file is a valid VSIX (ZIP) file
-    def verify_vsix(file_path):
-        """Verify that the downloaded file is a valid VSIX (ZIP) file."""
+    def verify_vsix(file_path, expected_size=None):
+        """Verify that the downloaded file is a valid VSIX (ZIP) file with integrity checks."""
         try:
             # Check if file exists and is not empty
             if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
                 print("Error: Downloaded file is empty or does not exist.")
                 return False
 
-            # Try to open the file as a ZIP archive
+            # Check file size if expected size is provided (allow some tolerance for compression)
+            if expected_size is not None:
+                actual_size = os.path.getsize(file_path)
+                # Allow 10% tolerance for size differences due to compression/headers
+                tolerance = max(expected_size * 0.1, 1024)  # At least 1KB tolerance
+                if abs(actual_size - expected_size) > tolerance:
+                    print(f"Warning: File size differs significantly. Expected {expected_size}, got {actual_size}")
+                    # Don't fail on size mismatch, just warn - the ZIP integrity check is more important
+
+            # Try to open the file as a ZIP archive and test integrity
             with zipfile.ZipFile(file_path, "r") as zip_ref:
+                # Test ZIP file integrity
+                if zip_ref.testzip() is not None:
+                    print("Error: Downloaded VSIX file is corrupted.")
+                    return False
                 # Try to read the file list to verify it's a valid ZIP
                 zip_ref.namelist()
             return True
@@ -242,6 +241,19 @@ def download_extension(publisher, extension, version, directory):
         except Exception as e:
             print(f"Error verifying file: {e}")
             return False
+
+    def calculate_sha256(file_path):
+        """Calculate SHA-256 hash of a file."""
+        sha256_hash = hashlib.sha256()
+        try:
+            with open(file_path, "rb") as f:
+                # Read file in chunks to handle large files efficiently
+                for chunk in iter(lambda: f.read(4096), b""):
+                    sha256_hash.update(chunk)
+            return sha256_hash.hexdigest()
+        except Exception as e:
+            print(f"Error calculating file hash: {e}")
+            return None
 
     # Function to download with retry logic and better progress reporting
     def download_file_with_retry(url, output_path, max_attempts=3):
@@ -296,8 +308,14 @@ def download_extension(publisher, extension, version, directory):
                     if total_size > 0:
                         print()
 
-                    # Verify the downloaded file
-                    if verify_vsix(temp_path):
+                    # Verify the downloaded file with size check
+                    expected_size = total_size if total_size > 0 else None
+                    if verify_vsix(temp_path, expected_size):
+                        # Calculate and display file hash for verification
+                        file_hash = calculate_sha256(temp_path)
+                        if file_hash:
+                            print(f"File SHA-256: {file_hash}")
+
                         # Move the temporary file to the final location
                         os.replace(temp_path, output_path)
                         print(f"Success! Downloaded to: {output_path}")
