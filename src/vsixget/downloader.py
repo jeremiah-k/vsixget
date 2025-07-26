@@ -169,17 +169,23 @@ def download_extension(publisher, extension, version, directory):
                 # Extract nested data with safe navigation
                 results = data.get("results", [])
                 if not results:
-                    print("Could not determine latest version, using 'latest' in filename")
+                    print(
+                        "Could not determine latest version, using 'latest' in filename"
+                    )
                     actual_version = "latest"
                 else:
                     extensions = results[0].get("extensions", [])
                     if not extensions:
-                        print("Could not determine latest version, using 'latest' in filename")
+                        print(
+                            "Could not determine latest version, using 'latest' in filename"
+                        )
                         actual_version = "latest"
                     else:
                         versions = extensions[0].get("versions", [])
                         if not versions:
-                            print("Could not determine latest version, using 'latest' in filename")
+                            print(
+                                "Could not determine latest version, using 'latest' in filename"
+                            )
                             actual_version = "latest"
                         else:
                             # Find the first version without a targetPlatform (universal version)
