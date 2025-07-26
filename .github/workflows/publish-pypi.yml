@@ -61,9 +61,13 @@ jobs:
       - name: Check package
         run: |
           python -m twine check dist/*
+          echo "Package contents:"
+          ls -la dist/
+          echo "Package metadata:"
+          python -m twine check dist/* --strict
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          repository-url: https://upload.pypi.org/legacy/
           verbose: true
+          print-hash: true
