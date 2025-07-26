@@ -66,6 +66,23 @@ jobs:
           echo "Package metadata:"
           python -m twine check dist/* --strict
 
+      - name: Debug trusted publisher claims
+        run: |
+          echo "=== TRUSTED PUBLISHER CONFIGURATION NEEDED ==="
+          echo "Owner: jeremiah-k"
+          echo "Repository name: vsixget"
+          echo "Workflow filename: publish-pypi.yml"
+          echo "Environment name: Release"
+          echo ""
+          echo "=== CURRENT GITHUB CONTEXT ==="
+          echo "Repository: ${{ github.repository }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "Environment: Release"
+          echo "Workflow: .github/workflows/publish-pypi.yml"
+          echo ""
+          echo "Expected sub claim: repo:jeremiah-k/vsixget:environment:Release"
+          echo "Expected workflow_ref: jeremiah-k/vsixget/.github/workflows/publish-pypi.yml@${{ github.ref }}"
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
