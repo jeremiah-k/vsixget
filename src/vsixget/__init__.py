@@ -9,6 +9,8 @@ from urllib.parse import parse_qs, urlparse
 
 import requests
 
+__version__ = "1.0.0"
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -80,6 +82,44 @@ def check_network_connectivity():
         return response.status_code == 200
     except requests.exceptions.RequestException:
         return False
+
+
+def version_compare(version1, version2):
+    """Compare two version strings. Returns True if version1 < version2."""
+    def normalize_version(v):
+        return [int(x) for x in re.sub(r'[^\d.]', '', v).split('.') if x.isdigit()]
+
+    v1_parts = normalize_version(version1)
+    v2_parts = normalize_version(version2)
+
+    # Pad shorter version with zeros
+    max_len = max(len(v1_parts), len(v2_parts))
+    v1_parts.extend([0] * (max_len - len(v1_parts)))
+    v2_parts.extend([0] * (max_len - len(v2_parts)))
+
+    return v1_parts < v2_parts
+
+
+def check_for_updates():
+    """Check if a newer version of vsixget is available on GitHub."""
+    try:
+        # Get the latest release from GitHub API
+        response = requests.get(
+            "https://api.github.com/repos/jeremiah-k/vsixget/releases/latest",
+            timeout=5
+        )
+        if response.status_code == 200:
+            data = response.json()
+            latest_version = data.get("tag_name", "").lstrip("v")
+
+            if latest_version and version_compare(__version__, latest_version):
+                print(f"📦 A newer version of vsixget is available: {latest_version} (current: {__version__})")
+                print("💡 Update with: pipx upgrade vsixget")
+                print()
+
+    except requests.exceptions.RequestException:
+        # Silently fail if we can't check for updates
+        pass
 
 
 def download_extension(publisher, extension, version, directory):
@@ -299,6 +339,9 @@ def download_extension(publisher, extension, version, directory):
 
 def main():
     args = parse_args()
+
+    # Check for updates
+    check_for_updates()
 
     publisher, extension = parse_extension_id(args.extension_id)
 
