@@ -40,7 +40,7 @@ git clone https://github.com/jeremiah-k/vsixget.git
 cd vsixget
 
 # Install in development mode
-pip install -e .
+pipx install -e .
 ```
 
 ## Usage
