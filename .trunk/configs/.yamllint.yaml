@@ -1,0 +1,5 @@
+# Prettier owns YAML presentation; retain semantic checks here.
+rules:
+  key-duplicates: {}
+  octal-values:
+    forbid-implicit-octal: true

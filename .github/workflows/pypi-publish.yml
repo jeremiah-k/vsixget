@@ -8,9 +8,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: pypi-publish
+  group: pypi-publish-${{ github.event.release.tag_name }}
   cancel-in-progress: false
-  queue: max
 
 jobs:
   publish:

@@ -1,0 +1,34 @@
+# Tool versions live here; Python policy lives in pyproject.toml.
+version: 0.1
+cli:
+  version: 1.29.0 # renovate: datasource=custom.trunk-cli depName=trunk-cli
+plugins:
+  sources:
+    - id: trunk
+      ref: v1.11.0 # renovate: datasource=github-tags depName=trunk-io/plugins
+      uri: https://github.com/trunk-io/plugins
+runtimes:
+  enabled:
+    - node@22.16.0
+    - python@3.14.4
+lint:
+  enabled:
+    - actionlint@1.7.12 # renovate: datasource=github-releases depName=rhysd/actionlint
+    - bandit@1.9.4 # renovate: datasource=pypi depName=bandit
+    - git-diff-check
+    - markdownlint@0.50.0 # renovate: datasource=npm depName=markdownlint-cli
+    - renovate@44.256.1 # renovate: datasource=npm depName=renovate
+    - ruff@0.17.6 # renovate: datasource=pypi depName=ruff
+    - trufflehog@3.100.0 # renovate: datasource=github-releases depName=trufflesecurity/trufflehog
+    - yamllint@1.38.0 # renovate: datasource=pypi depName=yamllint
+  ignore:
+    - linters: [bandit]
+      paths:
+        - tests/**
+actions:
+  disabled:
+    - trunk-announce
+    - trunk-check-pre-push
+    - trunk-fmt-pre-commit
+  enabled:
+    - trunk-upgrade-available
