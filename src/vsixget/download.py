@@ -24,6 +24,14 @@ from .errors import DownloadError, NotFoundError, RetryableError, VerificationEr
 CHUNK_SIZE = 1024 * 1024
 MAX_ATTEMPTS = 3
 _INVALID_FILENAME_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+_WINDOWS_RESERVED_STEMS = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *[f"COM{number}" for number in range(1, 10)],
+    *[f"LPT{number}" for number in range(1, 10)],
+}
 
 
 @dataclass(frozen=True)
@@ -53,41 +61,45 @@ def filename_from_content_disposition(value: str | None) -> str | None:
     return filename.strip() if filename else None
 
 
+def _is_reserved_windows_name(name: str) -> bool:
+    stem = name.split(".", 1)[0].rstrip(" ").upper()
+    return stem in _WINDOWS_RESERVED_STEMS
+
+
 def sanitize_filename(name: str | None, fallback: str) -> str:
     """Reduce a remote filename to a safe local basename."""
     candidate = (name or "").replace("\\", "/").split("/")[-1].strip()
     candidate = _INVALID_FILENAME_CHARS.sub("_", candidate).rstrip(" .")
-    if not candidate or candidate in {".", ".."}:
+    if not candidate or candidate in {".", ".."} or _is_reserved_windows_name(candidate):
         candidate = ""
 
     if not candidate.lower().endswith(".vsix"):
         candidate = (fallback or "").replace("\\", "/").split("/")[-1].strip()
         candidate = _INVALID_FILENAME_CHARS.sub("_", candidate).rstrip(" .")
 
-    if not candidate or candidate in {".", ".."}:
+    if not candidate or candidate in {".", ".."} or _is_reserved_windows_name(candidate):
         candidate = "download.vsix"
     if not candidate.lower().endswith(".vsix"):
         candidate = "download.vsix"
     return candidate
 
 
-def _normal_file_mode() -> int:
-    current_umask = os.umask(0)
-    os.umask(current_umask)
-    return 0o666 & ~current_umask
-
-
 def verify_vsix(path: Path) -> None:
-    """Verify the ZIP CRC and require a VSIX package manifest."""
+    """Verify every ZIP member's CRC and require a VSIX manifest."""
     try:
         with zipfile.ZipFile(path) as archive:
-            bad_member = archive.testzip()
-            if bad_member is not None:
-                raise VerificationError(f"ZIP member failed its CRC check: {bad_member}")
-            if "extension.vsixmanifest" not in archive.namelist():
+            infos = archive.infolist()
+            names = [info.filename for info in infos]
+            if len(names) != len(set(names)):
+                raise VerificationError("downloaded ZIP contains duplicate member names")
+            if "extension.vsixmanifest" not in names:
                 raise VerificationError(
                     "downloaded file is a ZIP but not a VSIX (missing extension.vsixmanifest)"
                 )
+            for info in infos:
+                with archive.open(info) as member:
+                    while member.read(CHUNK_SIZE):
+                        pass
     except (zipfile.BadZipFile, RuntimeError, zlib.error) as exc:
         raise VerificationError("downloaded file is not a valid VSIX (bad ZIP)") from exc
     except OSError as exc:
@@ -155,9 +167,7 @@ def _download_once(
         return DownloadResult(target, skipped=True)
 
     try:
-        response = session.get(
-            url, stream=True, timeout=timeout, proxies=session.proxies.copy()
-        )
+        response = session.get(url, stream=True, timeout=timeout, proxies=session.proxies.copy())
     except requests.exceptions.SSLError as exc:
         raise DownloadError(f"could not start download: {exc}") from exc
     except (requests.ConnectionError, requests.Timeout) as exc:
@@ -213,8 +223,6 @@ def _download_once(
                         )
                         last_report = time.monotonic()
 
-            with suppress(OSError):
-                os.chmod(temp_path, _normal_file_mode())
             verify_vsix(temp_path)
 
             if force:
@@ -279,7 +287,8 @@ def download_vsix(
                 break
             delay = exc.retry_after
             if delay is None:
-                delay = min(8.0, 2.0 ** (attempt - 1)) + random.uniform(0.0, 0.25)
+                jitter = random.uniform(0.0, 0.25)  # nosec B311 - retry jitter
+                delay = min(8.0, 2.0 ** (attempt - 1)) + jitter
             delay = min(delay, 30.0)
             if not quiet:
                 print(

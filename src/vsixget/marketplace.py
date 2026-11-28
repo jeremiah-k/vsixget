@@ -207,11 +207,12 @@ def query_versions(
         if not isinstance(item, dict):
             continue
         version = item.get("version")
-        target_platform = item.get("targetPlatform") or None
+        raw_target = item.get("targetPlatform")
         if not isinstance(version, str) or not version:
             continue
-        if target_platform is not None and not isinstance(target_platform, str):
+        if raw_target is not None and not isinstance(raw_target, str):
             continue
+        target_platform = raw_target or None
         key = (version, target_platform)
         if key in seen:
             continue

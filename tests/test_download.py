@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import io
+import os
+import stat
 import zipfile
 from pathlib import Path
 
@@ -48,6 +50,9 @@ def test_filename_from_rfc5987_content_disposition() -> None:
         ("bad:name?.vsix", "fallback.vsix", "bad_name_.vsix"),
         ("not-a-vsix.zip", "fallback.vsix", "fallback.vsix"),
         (None, "fallback.vsix", "fallback.vsix"),
+        ("NUL.vsix", "fallback.vsix", "fallback.vsix"),
+        ("con.txt.vsix", "fallback.vsix", "fallback.vsix"),
+        ("CON", "CON.vsix", "download.vsix"),
     ],
 )
 def test_sanitize_filename(name: str | None, field: str, expected: str) -> None:
@@ -74,6 +79,19 @@ def test_verify_vsix_rejects_non_zip(tmp_path: Path) -> None:
     path = tmp_path / "corrupt.vsix"
     path.write_bytes(b"not a zip")
     with pytest.raises(VerificationError):
+        verify_vsix(path)
+
+
+def test_verify_vsix_rejects_duplicate_members(tmp_path: Path) -> None:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("extension.vsixmanifest", "<PackageManifest/>")
+        archive.writestr("duplicate.txt", "first")
+        with pytest.warns(UserWarning, match="Duplicate name"):
+            archive.writestr("duplicate.txt", "second")
+    path = tmp_path / "duplicate.vsix"
+    path.write_bytes(buffer.getvalue())
+    with pytest.raises(VerificationError, match="duplicate member names"):
         verify_vsix(path)
 
 
@@ -268,8 +286,33 @@ def test_nested_directory_is_created(tmp_path: Path) -> None:
         quiet=True,
     )
 
-    assert result.path.parent.is_dir()
-    assert result.path.exists()
+    assert result.path == tmp_path / "a" / "b" / "nested.vsix"
+    assert result.path.read_bytes() == payload
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file mode assertion")
+@responses.activate
+def test_download_keeps_private_file_mode(tmp_path: Path) -> None:
+    payload = valid_zip_bytes()
+    responses.add(
+        responses.GET,
+        URL,
+        body=payload,
+        headers={
+            "Content-Disposition": 'filename="private.vsix"',
+            "Content-Length": str(len(payload)),
+        },
+    )
+
+    result = download_vsix(
+        requests.Session(),
+        URL,
+        tmp_path,
+        expected_name="fallback.vsix",
+        quiet=True,
+    )
+
+    assert stat.S_IMODE(result.path.stat().st_mode) == 0o600
 
 
 def test_format_size() -> None:

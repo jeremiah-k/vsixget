@@ -97,6 +97,8 @@ vsixget --version
   suffix.
 - **Existing files are skipped.** Pass `--force` to overwrite. On POSIX, safe
   no-overwrite publication requires a filesystem that supports hard links.
+- **Private file mode (POSIX).** Downloads keep the temporary file's `0600`
+  permissions; run `chmod` on the VSIX if it needs to be shared.
 - **Progress goes to stderr; the final path goes to stdout.** `--quiet` suppresses
   both.
 - **Exit codes:** `0` success, `1` download or runtime failure, `2` usage error,
@@ -115,6 +117,10 @@ ruff format --check .
 
 The test suite mocks the Marketplace and never requires network access. The
 `integration` marker is reserved for optional real-Marketplace tests.
+
+Trunk and Renovate configurations are checked in. Run `.trunk/trunk check`
+for the same lint suite locally; Trunk pin annotations feed the Renovate
+custom manager.
 
 ## License
 

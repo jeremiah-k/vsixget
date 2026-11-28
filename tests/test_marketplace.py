@@ -216,6 +216,30 @@ def test_query_versions_success() -> None:
 
 
 @responses.activate
+def test_query_versions_skips_non_string_target_platform() -> None:
+    payload = {
+        "results": [
+            {
+                "extensions": [
+                    {
+                        "versions": [
+                            {"version": "1.0.0", "targetPlatform": False},
+                            {"version": "1.0.0", "targetPlatform": 0},
+                            {"version": "1.0.0", "targetPlatform": None},
+                            {"version": "1.0.0"},
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+    responses.add(responses.POST, QUERY_URL, json=payload)
+    assert query_versions(requests.Session(), ExtensionRef("publisher", "extension")) == [
+        Build("1.0.0")
+    ]
+
+
+@responses.activate
 def test_query_versions_not_found() -> None:
     responses.add(responses.POST, QUERY_URL, json={"results": []})
     with pytest.raises(NotFoundError):

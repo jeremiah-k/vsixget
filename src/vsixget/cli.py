@@ -153,8 +153,8 @@ def run(args: argparse.Namespace) -> int:
 
     timeout = (min(10.0, args.timeout), args.timeout)
 
-    if version is not None and (target_platform is not None or args.universal):
-        build = Build(version=version, target_platform=None if args.universal else target_platform)
+    if version is not None and target_platform is not None:
+        build = Build(version=version, target_platform=target_platform)
     else:
         builds = query_versions(session, ref, timeout=timeout, include_history=version is not None)
         build = select_build(

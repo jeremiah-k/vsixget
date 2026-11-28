@@ -95,9 +95,76 @@ def test_404_exit_code_and_no_retry(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     session = requests.Session()
     session.get = Mock(return_value=response(404))
     monkeypatch.setattr(cli.requests, "Session", lambda: session)
-    assert cli.main([REF.id, "-v", "1.0.0", "--universal", "-d", str(tmp_path)]) == 3
+    assert (
+        cli.main([REF.id, "-v", "1.0.0", "--target-platform", "linux-x64", "-d", str(tmp_path)])
+        == 3
+    )
     session.get.assert_called_once()
     assert not list(tmp_path.iterdir())
+
+
+def test_pinned_universal_queries_history_and_rejects_platform_only(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    session = requests.Session()
+    session.post = Mock(
+        return_value=response(
+            body=json.dumps(
+                {
+                    "results": [
+                        {
+                            "extensions": [
+                                {"versions": [{"version": "1.0.0", "targetPlatform": "linux-x64"}]}
+                            ]
+                        }
+                    ]
+                }
+            ).encode()
+        )
+    )
+    monkeypatch.setattr(cli.requests, "Session", lambda: session)
+    fetch = Mock()
+    monkeypatch.setattr(cli, "download_vsix", fetch)
+
+    assert cli.main([REF.id, "-v", "1.0.0", "--universal", "-d", str(tmp_path)]) == 3
+    assert session.post.call_args.kwargs["json"]["flags"] == 1
+    fetch.assert_not_called()
+
+
+def test_pinned_universal_uses_universal_build(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    session = requests.Session()
+    session.post = Mock(
+        return_value=response(
+            body=json.dumps(
+                {
+                    "results": [
+                        {
+                            "extensions": [
+                                {
+                                    "versions": [
+                                        {"version": "1.0.0"},
+                                        {
+                                            "version": "1.0.0",
+                                            "targetPlatform": "linux-x64",
+                                        },
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ).encode()
+        )
+    )
+    monkeypatch.setattr(cli.requests, "Session", lambda: session)
+    fetch = Mock(return_value=DownloadResult(tmp_path / "out.vsix"))
+    monkeypatch.setattr(cli, "download_vsix", fetch)
+
+    assert cli.main([REF.id, "-v", "1.0.0", "--universal", "-d", str(tmp_path)]) == 0
+    assert fetch.call_args.args[1].endswith("/1.0.0/vspackage")
+    assert "targetPlatform=" not in fetch.call_args.args[1]
 
 
 @pytest.mark.parametrize("force", [False, True])

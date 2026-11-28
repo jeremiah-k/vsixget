@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 - 2026-11-27
+## 0.2.0 - 2026-11-28
 
 ### Breaking changes
 
@@ -19,7 +19,9 @@
 - `--target-platform`, `--universal`, `--force`, `--quiet`, `--timeout`,
   `--proxy`, and `--debug` options.
 - `python -m vsixget` support.
-- Tests, GitHub Actions CI, Dependabot, and a release-version check.
+- Tests, GitHub Actions CI, Renovate, and a release-version check.
+- A Trunk config whose CLI, plugin, and linter pins are annotated for Renovate,
+  with Trunk checks running in CI.
 
 ### Fixed
 
@@ -31,18 +33,28 @@
 - Platform suffixes from `Content-Disposition` are preserved in filenames.
 - gzip-compressed downloads no longer report impossible percentages or use the
   compressed length as an integrity check.
-- 404 responses are not retried.
-- Malformed Marketplace JSON, filesystem errors, interrupted downloads, and
-  malformed filenames are reported without tracebacks.
-- Partial downloads are cleaned up, temporary names no longer collide, and
-  verification checks the VSIX manifest.
+- 404 responses are not retried and exit with status `3`.
+- Pinned versions are resolved from Marketplace history, and explicit targets
+  choose the newest matching build before falling back to universal.
+- `--universal` with a pinned version verifies that a universal build exists.
+- Downloads without `--force` publish without overwriting a concurrently created
+  file; POSIX publication uses hard links.
+- Malformed Marketplace JSON, filesystem errors, interrupted downloads, malformed
+  URLs, invalid target-platform metadata, and Windows device names are handled
+  without tracebacks.
+- Partial downloads are cleaned up, temporary names no longer collide, duplicate
+  ZIP members are rejected, and verification checks every member plus the VSIX
+  manifest.
+- The interactive prompt writes to stderr, and downloaded files keep the private
+  temporary-file mode without changing the process umask.
+- PyPI publication runs use a tag-specific concurrency group, so pending releases are not cancelled.
 
 ### Removed
 
 - Automatic GitHub update checks and the redundant Marketplace connectivity
   check.
 - The unverified SHA-256 output.
-- The old Trunk configuration and `MANIFEST.in`.
+- The Dependabot configuration and `MANIFEST.in`.
 
 ## 0.1.0
 

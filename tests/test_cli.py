@@ -213,6 +213,11 @@ def test_interactive_eof_is_a_usage_error(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setattr(cli.sys, "stdin", types.SimpleNamespace(isatty=lambda: True))
+    monkeypatch.setattr(
+        cli.requests,
+        "Session",
+        lambda: (_ for _ in ()).throw(AssertionError("network session created")),
+    )
 
     def raise_eof() -> str:
         raise EOFError
