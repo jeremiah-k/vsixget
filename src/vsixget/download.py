@@ -19,7 +19,13 @@ from pathlib import Path
 
 import requests
 
-from .errors import DownloadError, NotFoundError, RetryableError, VerificationError, VsixgetError
+from .errors import (
+    DownloadError,
+    NotFoundError,
+    RetryableError,
+    VerificationError,
+    VsixgetError,
+)
 
 CHUNK_SIZE = 1024 * 1024
 MAX_ATTEMPTS = 3

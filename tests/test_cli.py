@@ -36,7 +36,9 @@ def test_default_uses_latest_without_prompt(
     monkeypatch.setattr("builtins.input", fail_input)
     monkeypatch.setattr(cli.requests, "Session", fake_session)
     monkeypatch.setattr(
-        cli, "query_versions", lambda session, ref, *, timeout, include_history: [Build("1.0.0")]
+        cli,
+        "query_versions",
+        lambda session, ref, *, timeout, include_history: [Build("1.0.0")],
     )
     output = DownloadResult(tmp_path / "out.vsix")
 
@@ -57,7 +59,9 @@ def test_quiet_suppresses_output(
 ) -> None:
     monkeypatch.setattr(cli.requests, "Session", fake_session)
     monkeypatch.setattr(
-        cli, "query_versions", lambda session, ref, *, timeout, include_history: [Build("1.0.0")]
+        cli,
+        "query_versions",
+        lambda session, ref, *, timeout, include_history: [Build("1.0.0")],
     )
     monkeypatch.setattr(
         cli,
@@ -87,7 +91,9 @@ def test_interactive_prompts_and_uses_version(
     monkeypatch.setattr("builtins.input", lambda: "1.2.3")
     monkeypatch.setattr(cli.requests, "Session", fake_session)
     monkeypatch.setattr(
-        cli, "query_versions", lambda session, ref, *, timeout, include_history: [Build("1.2.3")]
+        cli,
+        "query_versions",
+        lambda session, ref, *, timeout, include_history: [Build("1.2.3")],
     )
     urls: list[str] = []
 
@@ -111,7 +117,9 @@ def test_interactive_requires_terminal(
     monkeypatch.setattr(cli.sys, "stdin", types.SimpleNamespace(isatty=lambda: False))
     monkeypatch.setattr(cli.requests, "Session", fake_session)
     monkeypatch.setattr(
-        cli, "query_versions", lambda session, ref, *, timeout, include_history: [Build("1.0.0")]
+        cli,
+        "query_versions",
+        lambda session, ref, *, timeout, include_history: [Build("1.0.0")],
     )
 
     assert cli.main(["publisher.extension", "--interactive"]) == 2
@@ -186,7 +194,9 @@ def test_invalid_timeout_is_rejected(timeout: str) -> None:
 def test_force_is_forwarded(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(cli.requests, "Session", fake_session)
     monkeypatch.setattr(
-        cli, "query_versions", lambda session, ref, *, timeout, include_history: [Build("1.0.0")]
+        cli,
+        "query_versions",
+        lambda session, ref, *, timeout, include_history: [Build("1.0.0")],
     )
     captured: dict[str, Any] = {}
 
@@ -231,7 +241,9 @@ def test_interactive_eof_is_a_usage_error(
 def test_legacy_latest_flag_is_accepted(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(cli.requests, "Session", fake_session)
     monkeypatch.setattr(
-        cli, "query_versions", lambda session, ref, *, timeout, include_history: [Build("1.0.0")]
+        cli,
+        "query_versions",
+        lambda session, ref, *, timeout, include_history: [Build("1.0.0")],
     )
     monkeypatch.setattr(
         cli,

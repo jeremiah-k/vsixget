@@ -125,7 +125,12 @@ def _prompt_for_version() -> str | None:
     if not sys.stdin.isatty():
         raise UsageError("--interactive requires a terminal")
     try:
-        print("Extension version (blank for latest): ", end="", file=sys.stderr, flush=True)
+        print(
+            "Extension version (blank for latest): ",
+            end="",
+            file=sys.stderr,
+            flush=True,
+        )
         entered = input().strip()
     except EOFError as exc:
         raise UsageError("interactive prompt cancelled") from exc
@@ -211,7 +216,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.debug:
             traceback.print_exc()
         else:
-            print(f"vsixget: unexpected error: {exc} (rerun with --debug)", file=sys.stderr)
+            print(
+                f"vsixget: unexpected error: {exc} (rerun with --debug)",
+                file=sys.stderr,
+            )
         return 1
 
 

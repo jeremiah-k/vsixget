@@ -13,14 +13,34 @@ runtimes:
     - python@3.14.4
 lint:
   enabled:
+    - black@26.10.1 # renovate: datasource=pypi depName=black
+    - checkov@3.4.11 # renovate: datasource=pypi depName=checkov
+    - isort@9.0.2 # renovate: datasource=pypi depName=isort
+    - pinact@5.0.2 # renovate: datasource=github-releases depName=suzuki-shunsuke/pinact
+    - prettier@3.10.1 # renovate: datasource=npm depName=prettier
+    - taplo@0.10.0 # renovate: datasource=github-releases depName=tamasfe/taplo
     - actionlint@1.7.12 # renovate: datasource=github-releases depName=rhysd/actionlint
     - bandit@1.9.4 # renovate: datasource=pypi depName=bandit
     - git-diff-check
-    - markdownlint@0.50.0 # renovate: datasource=npm depName=markdownlint-cli
-    - renovate@44.256.1 # renovate: datasource=npm depName=renovate
+    - markdownlint@0.50.1 # renovate: datasource=npm depName=markdownlint-cli
+    - renovate@45.3.2 # renovate: datasource=npm depName=renovate
     - ruff@0.17.6 # renovate: datasource=pypi depName=ruff
-    - trufflehog@3.100.0 # renovate: datasource=github-releases depName=trufflesecurity/trufflehog
+    - trufflehog@3.100.1 # renovate: datasource=github-releases depName=trufflesecurity/trufflehog
     - yamllint@1.38.0 # renovate: datasource=pypi depName=yamllint
+  definitions:
+    - name: pinact
+      commands:
+        - name: lint
+          run: pinact run --format sarif --no-api ${target}
+          output: sarif
+          success_codes:
+            - 0
+            - 1
+            - 2
+          batch: true
+          read_output_from: stdout
+          is_security: true
+          disable_upstream: true
   ignore:
     - linters: [bandit]
       paths:

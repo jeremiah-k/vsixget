@@ -82,7 +82,9 @@ def test_validate_target_platform() -> None:
         validate_target_platform("../linux-x64")
 
 
-def test_selects_latest_platform_build_not_old_universal(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_selects_latest_platform_build_not_old_universal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(marketplace, "detect_target_platform", lambda: "linux-x64")
     build = select_build(cpp_builds())
     assert build == Build("1.35.6", "linux-x64")
@@ -93,7 +95,9 @@ def test_selects_explicit_target(monkeypatch: pytest.MonkeyPatch) -> None:
     assert select_build(cpp_builds(), target_platform="win32-x64") == Build("1.35.6", "win32-x64")
 
 
-def test_universal_flag_selects_latest_universal(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_universal_flag_selects_latest_universal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(marketplace, "detect_target_platform", lambda: "linux-x64")
     assert select_build(cpp_builds(), universal=True) == Build("1.7.1")
 
@@ -104,7 +108,9 @@ def test_target_falls_back_to_universal(monkeypatch: pytest.MonkeyPatch) -> None
     assert select_build(builds, target_platform="win32-x64") == Build("2.0.0")
 
 
-def test_missing_target_reports_available_targets(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_missing_target_reports_available_targets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(marketplace, "detect_target_platform", lambda: "linux-x64")
     with pytest.raises(NotFoundError, match="linux-x64"):
         select_build(
@@ -113,7 +119,9 @@ def test_missing_target_reports_available_targets(monkeypatch: pytest.MonkeyPatc
         )
 
 
-def test_host_preferred_even_when_universal_is_newer(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_host_preferred_even_when_universal_is_newer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(marketplace, "detect_target_platform", lambda: "linux-x64")
     builds = [Build("2.0.0"), Build("1.9.0", "linux-x64")]
     assert select_build(builds) == Build("1.9.0", "linux-x64")

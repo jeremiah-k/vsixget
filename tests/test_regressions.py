@@ -29,7 +29,9 @@ def test_latest_compatible_build(target: str | None, monkeypatch: pytest.MonkeyP
     assert select_build(builds, target_platform=target) == Build("2.0.0", "linux-x64")
 
 
-def test_platform_tie_and_older_universal_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_platform_tie_and_older_universal_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(marketplace, "detect_target_platform", lambda: "linux-x64")
     builds = [Build("2.0.0"), Build("2.0.0", "linux-x64"), Build("3.0.0", "win32-x64")]
     assert select_build(builds) == Build("2.0.0", "linux-x64")
@@ -69,8 +71,14 @@ def test_cli_queries_history_only_for_pin(
                             "extensions": [
                                 {
                                     "versions": [
-                                        {"version": "2.0.0", "targetPlatform": "linux-x64"},
-                                        {"version": "1.0.0", "targetPlatform": "linux-x64"},
+                                        {
+                                            "version": "2.0.0",
+                                            "targetPlatform": "linux-x64",
+                                        },
+                                        {
+                                            "version": "1.0.0",
+                                            "targetPlatform": "linux-x64",
+                                        },
                                     ]
                                 }
                             ]
@@ -96,7 +104,17 @@ def test_404_exit_code_and_no_retry(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     session.get = Mock(return_value=response(404))
     monkeypatch.setattr(cli.requests, "Session", lambda: session)
     assert (
-        cli.main([REF.id, "-v", "1.0.0", "--target-platform", "linux-x64", "-d", str(tmp_path)])
+        cli.main(
+            [
+                REF.id,
+                "-v",
+                "1.0.0",
+                "--target-platform",
+                "linux-x64",
+                "-d",
+                str(tmp_path),
+            ]
+        )
         == 3
     )
     session.get.assert_called_once()
@@ -114,7 +132,14 @@ def test_pinned_universal_queries_history_and_rejects_platform_only(
                     "results": [
                         {
                             "extensions": [
-                                {"versions": [{"version": "1.0.0", "targetPlatform": "linux-x64"}]}
+                                {
+                                    "versions": [
+                                        {
+                                            "version": "1.0.0",
+                                            "targetPlatform": "linux-x64",
+                                        }
+                                    ]
+                                }
                             ]
                         }
                     ]
