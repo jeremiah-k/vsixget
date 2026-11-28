@@ -84,16 +84,19 @@ vsixget --version
 ## Behavior
 
 - **Latest by default.** No Enter key or `--latest` is required. `--latest` is
-  still accepted for compatibility, but it is a no-op.
+  still accepted for compatibility, but cannot be combined with `-v`.
 - **Platform-aware.** The tool reads the Marketplace's latest build for each target
-  platform and downloads the one matching the current host. If no matching platform
-  build exists, it falls back to the universal build when available. Use
+  platform and downloads the newest one matching the current host, even if another
+  platform has a newer version. If no matching platform build exists, it falls back
+  to the newest universal build when available. With `-v` and no platform override,
+  historical builds are searched for the requested version. Use
   `--target-platform` for a specific build and `--universal` for maximum
   compatibility.
 - **Safe filenames.** The filename from the Marketplace `Content-Disposition` header
   is used when present, so platform-specific packages keep their `@linux-x64`-style
   suffix.
-- **Existing files are skipped.** Pass `--force` to overwrite.
+- **Existing files are skipped.** Pass `--force` to overwrite. On POSIX, safe
+  no-overwrite publication requires a filesystem that supports hard links.
 - **Progress goes to stderr; the final path goes to stdout.** `--quiet` suppresses
   both.
 - **Exit codes:** `0` success, `1` download or runtime failure, `2` usage error,

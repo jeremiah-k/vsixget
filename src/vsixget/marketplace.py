@@ -21,6 +21,8 @@ API_HEADERS = {
 }
 # IncludeLatestVersionOnly: the gallery returns one entry per target platform.
 QUERY_FLAGS = 512
+# IncludeVersions: request history rather than only the latest builds.
+HISTORY_QUERY_FLAGS = 1
 DEFAULT_TIMEOUT = (10.0, 30.0)
 
 PUBLISHER_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")
@@ -62,7 +64,10 @@ def parse_extension_id(value: str) -> ExtensionRef:
     if value.startswith("vscode:extension/"):
         value = value[len("vscode:extension/") :]
     elif value.startswith(("http://", "https://")):
-        parsed = urlparse(value)
+        try:
+            parsed = urlparse(value)
+        except ValueError as exc:
+            raise UsageError("invalid Marketplace URL") from exc
         item_names = parse_qs(parsed.query).get("itemName")
         if not item_names:
             raise UsageError("Marketplace URL must contain itemName=publisher.extension")
@@ -153,8 +158,9 @@ def query_versions(
     ref: ExtensionRef,
     *,
     timeout: tuple[float, float] | float = DEFAULT_TIMEOUT,
+    include_history: bool = False,
 ) -> list[Build]:
-    """Fetch the latest build for each target platform from the Marketplace."""
+    """Fetch latest builds per platform, or full history for a pinned version."""
     payload = {
         "filters": [
             {
@@ -163,11 +169,17 @@ def query_versions(
                 "pageSize": 1,
             }
         ],
-        "flags": QUERY_FLAGS,
+        "flags": HISTORY_QUERY_FLAGS if include_history else QUERY_FLAGS,
     }
 
     try:
-        response = session.post(QUERY_URL, json=payload, headers=API_HEADERS, timeout=timeout)
+        response = session.post(
+            QUERY_URL,
+            json=payload,
+            headers=API_HEADERS,
+            timeout=timeout,
+            proxies=session.proxies.copy(),
+        )
     except requests.RequestException as exc:
         raise MarketplaceError(f"could not reach the Marketplace: {exc}") from exc
 
@@ -233,34 +245,21 @@ def select_build(
             raise NotFoundError("no universal build is available for this extension")
         return max(candidates, key=_version_key)
 
-    latest = max(builds, key=_version_key)
-    candidates = [build for build in builds if build.version == latest.version]
-
-    if target_platform is not None:
-        exact = [build for build in candidates if build.target_platform == target_platform]
+    target = target_platform if target_platform is not None else detect_target_platform()
+    if target is not None:
+        exact = [build for build in builds if build.target_platform == target]
         if exact:
-            return exact[0]
-        fallback = [build for build in candidates if build.is_universal]
-        if fallback:
-            return fallback[0]
-        raise NotFoundError(
-            f"no {target_platform} build for version {latest.version}; "
-            f"available: {_describe_available(candidates)}"
-        )
+            return max(exact, key=_version_key)
 
-    fallback = [build for build in candidates if build.is_universal]
+    fallback = [build for build in builds if build.is_universal]
     if fallback:
-        return fallback[0]
+        return max(fallback, key=_version_key)
 
-    host = detect_target_platform()
-    if host is not None:
-        exact = [build for build in candidates if build.target_platform == host]
-        if exact:
-            return exact[0]
-
+    requested = target_platform or f"detected platform {target or 'unknown'}"
+    version_detail = f" for version {version}" if version is not None else ""
     raise NotFoundError(
-        f"no build for detected platform {host or 'unknown'} and version {latest.version}; "
-        f"use --target-platform or --universal; available: {_describe_available(candidates)}"
+        f"no build for {requested}{version_detail}; "
+        f"use --target-platform or --universal; available: {_describe_available(builds)}"
     )
 
 

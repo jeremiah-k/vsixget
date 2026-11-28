@@ -18,7 +18,7 @@ from vsixget.download import (
     sanitize_filename,
     verify_vsix,
 )
-from vsixget.errors import DownloadError, VerificationError
+from vsixget.errors import DownloadError, NotFoundError, VerificationError
 
 URL = "https://marketplace.visualstudio.com/example.vspackage"
 
@@ -127,7 +127,7 @@ def test_existing_file_is_skipped_without_request(tmp_path: Path) -> None:
 def test_missing_extension_is_not_retried(tmp_path: Path) -> None:
     responses.add(responses.GET, URL, status=404)
 
-    with pytest.raises(DownloadError, match="404"):
+    with pytest.raises(NotFoundError, match="404"):
         download_vsix(
             requests.Session(),
             URL,

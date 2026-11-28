@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 import traceback
 from collections.abc import Sequence
@@ -124,7 +125,8 @@ def _prompt_for_version() -> str | None:
     if not sys.stdin.isatty():
         raise UsageError("--interactive requires a terminal")
     try:
-        entered = input("Extension version (blank for latest): ").strip()
+        print("Extension version (blank for latest): ", end="", file=sys.stderr, flush=True)
+        entered = input().strip()
     except EOFError as exc:
         raise UsageError("interactive prompt cancelled") from exc
     return entered or None
@@ -154,7 +156,7 @@ def run(args: argparse.Namespace) -> int:
     if version is not None and (target_platform is not None or args.universal):
         build = Build(version=version, target_platform=None if args.universal else target_platform)
     else:
-        builds = query_versions(session, ref, timeout=timeout)
+        builds = query_versions(session, ref, timeout=timeout, include_history=version is not None)
         build = select_build(
             builds,
             target_platform=target_platform,
@@ -192,8 +194,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--latest and -v/--extension-version cannot be used together")
     if args.interactive and args.version is not None:
         parser.error("--interactive and -v/--extension-version cannot be used together")
-    if args.timeout <= 0:
-        parser.error("--timeout must be greater than zero")
+    if not math.isfinite(args.timeout) or args.timeout <= 0:
+        parser.error("--timeout must be finite and greater than zero")
 
     try:
         return run(args)

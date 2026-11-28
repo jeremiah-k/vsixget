@@ -107,13 +107,16 @@ def test_target_falls_back_to_universal(monkeypatch: pytest.MonkeyPatch) -> None
 def test_missing_target_reports_available_targets(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(marketplace, "detect_target_platform", lambda: "linux-x64")
     with pytest.raises(NotFoundError, match="linux-x64"):
-        select_build(cpp_builds(), target_platform="freebsd-x64")
+        select_build(
+            [build for build in cpp_builds() if not build.is_universal],
+            target_platform="freebsd-x64",
+        )
 
 
-def test_universal_preferred_at_latest_version(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_host_preferred_even_when_universal_is_newer(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(marketplace, "detect_target_platform", lambda: "linux-x64")
     builds = [Build("2.0.0"), Build("1.9.0", "linux-x64")]
-    assert select_build(builds) == Build("2.0.0")
+    assert select_build(builds) == Build("1.9.0", "linux-x64")
 
 
 def test_unknown_host_without_universal_fails(monkeypatch: pytest.MonkeyPatch) -> None:

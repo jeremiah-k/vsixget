@@ -29,13 +29,15 @@ def test_default_uses_latest_without_prompt(
 ) -> None:
     prompts: list[str] = []
 
-    def fail_input(prompt: str) -> str:
-        prompts.append(prompt)
+    def fail_input(*args: str) -> str:
+        prompts.extend(args)
         raise AssertionError("default invocation must not prompt")
 
     monkeypatch.setattr("builtins.input", fail_input)
     monkeypatch.setattr(cli.requests, "Session", fake_session)
-    monkeypatch.setattr(cli, "query_versions", lambda session, ref, *, timeout: [Build("1.0.0")])
+    monkeypatch.setattr(
+        cli, "query_versions", lambda session, ref, *, timeout, include_history: [Build("1.0.0")]
+    )
     output = DownloadResult(tmp_path / "out.vsix")
 
     def fake_download(*args: Any, **kwargs: Any) -> DownloadResult:
@@ -54,7 +56,9 @@ def test_quiet_suppresses_output(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     monkeypatch.setattr(cli.requests, "Session", fake_session)
-    monkeypatch.setattr(cli, "query_versions", lambda session, ref, *, timeout: [Build("1.0.0")])
+    monkeypatch.setattr(
+        cli, "query_versions", lambda session, ref, *, timeout, include_history: [Build("1.0.0")]
+    )
     monkeypatch.setattr(
         cli,
         "download_vsix",
@@ -80,9 +84,11 @@ def test_interactive_prompts_and_uses_version(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setattr(cli.sys, "stdin", types.SimpleNamespace(isatty=lambda: True))
-    monkeypatch.setattr("builtins.input", lambda prompt: "1.2.3")
+    monkeypatch.setattr("builtins.input", lambda: "1.2.3")
     monkeypatch.setattr(cli.requests, "Session", fake_session)
-    monkeypatch.setattr(cli, "query_versions", lambda session, ref, *, timeout: [Build("1.2.3")])
+    monkeypatch.setattr(
+        cli, "query_versions", lambda session, ref, *, timeout, include_history: [Build("1.2.3")]
+    )
     urls: list[str] = []
 
     def fake_download(session: Any, url: str, *args: Any, **kwargs: Any) -> DownloadResult:
@@ -93,7 +99,10 @@ def test_interactive_prompts_and_uses_version(
 
     assert cli.main(["publisher.extension", "--interactive"]) == 0
     assert urls and "1.2.3" in urls[0]
-    assert "1.2.3" in capsys.readouterr().err
+    captured = capsys.readouterr()
+    assert captured.out == f"{tmp_path / 'out.vsix'}\n"
+    assert "Extension version (blank for latest): " in captured.err
+    assert "1.2.3" in captured.err
 
 
 def test_interactive_requires_terminal(
@@ -101,7 +110,9 @@ def test_interactive_requires_terminal(
 ) -> None:
     monkeypatch.setattr(cli.sys, "stdin", types.SimpleNamespace(isatty=lambda: False))
     monkeypatch.setattr(cli.requests, "Session", fake_session)
-    monkeypatch.setattr(cli, "query_versions", lambda session, ref, *, timeout: [Build("1.0.0")])
+    monkeypatch.setattr(
+        cli, "query_versions", lambda session, ref, *, timeout, include_history: [Build("1.0.0")]
+    )
 
     assert cli.main(["publisher.extension", "--interactive"]) == 2
     assert "requires a terminal" in capsys.readouterr().err
@@ -165,15 +176,18 @@ def test_platform_options_are_mutually_exclusive() -> None:
     assert exc.value.code == 2
 
 
-def test_non_positive_timeout_is_rejected() -> None:
+@pytest.mark.parametrize("timeout", ["0", "nan", "inf", "-inf"])
+def test_invalid_timeout_is_rejected(timeout: str) -> None:
     with pytest.raises(SystemExit) as exc:
-        cli.main(["publisher.extension", "--timeout", "0"])
+        cli.main(["publisher.extension", f"--timeout={timeout}"])
     assert exc.value.code == 2
 
 
 def test_force_is_forwarded(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(cli.requests, "Session", fake_session)
-    monkeypatch.setattr(cli, "query_versions", lambda session, ref, *, timeout: [Build("1.0.0")])
+    monkeypatch.setattr(
+        cli, "query_versions", lambda session, ref, *, timeout, include_history: [Build("1.0.0")]
+    )
     captured: dict[str, Any] = {}
 
     def fake_download(*args: Any, **kwargs: Any) -> DownloadResult:
@@ -200,7 +214,7 @@ def test_interactive_eof_is_a_usage_error(
 ) -> None:
     monkeypatch.setattr(cli.sys, "stdin", types.SimpleNamespace(isatty=lambda: True))
 
-    def raise_eof(prompt: str) -> str:
+    def raise_eof() -> str:
         raise EOFError
 
     monkeypatch.setattr("builtins.input", raise_eof)
@@ -211,7 +225,9 @@ def test_interactive_eof_is_a_usage_error(
 
 def test_legacy_latest_flag_is_accepted(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(cli.requests, "Session", fake_session)
-    monkeypatch.setattr(cli, "query_versions", lambda session, ref, *, timeout: [Build("1.0.0")])
+    monkeypatch.setattr(
+        cli, "query_versions", lambda session, ref, *, timeout, include_history: [Build("1.0.0")]
+    )
     monkeypatch.setattr(
         cli,
         "download_vsix",

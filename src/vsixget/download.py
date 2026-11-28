@@ -9,6 +9,7 @@ import sys
 import tempfile
 import time
 import zipfile
+import zlib
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -18,7 +19,7 @@ from pathlib import Path
 
 import requests
 
-from .errors import DownloadError, RetryableError, VerificationError
+from .errors import DownloadError, NotFoundError, RetryableError, VerificationError, VsixgetError
 
 CHUNK_SIZE = 1024 * 1024
 MAX_ATTEMPTS = 3
@@ -87,7 +88,7 @@ def verify_vsix(path: Path) -> None:
                 raise VerificationError(
                     "downloaded file is a ZIP but not a VSIX (missing extension.vsixmanifest)"
                 )
-    except zipfile.BadZipFile as exc:
+    except (zipfile.BadZipFile, RuntimeError, zlib.error) as exc:
         raise VerificationError("downloaded file is not a valid VSIX (bad ZIP)") from exc
     except OSError as exc:
         raise VerificationError(f"could not read the downloaded file: {exc}") from exc
@@ -109,18 +110,16 @@ def _parse_retry_after(value: str | None) -> float | None:
     return max(0.0, (retry_at - datetime.now(UTC)).total_seconds())
 
 
-def _response_error(response: requests.Response) -> DownloadError:
+def _response_error(response: requests.Response) -> VsixgetError:
     status = response.status_code
     if status == 404:
-        return DownloadError("extension or version was not found (HTTP 404)")
+        return NotFoundError("extension, version, or platform was not found (HTTP 404)")
     if status == 429 or 500 <= status < 600:
         return RetryableError(
             f"Marketplace returned HTTP {status}",
             retry_after=_parse_retry_after(response.headers.get("retry-after")),
         )
-    body = (response.text or "").strip().replace("\n", " ")[:200]
-    detail = f": {body}" if body else ""
-    return DownloadError(f"download failed with HTTP {status}{detail}")
+    return DownloadError(f"download failed with HTTP {status}")
 
 
 def _progress_line(downloaded: int, total: int, compressed: bool) -> str:
@@ -128,6 +127,12 @@ def _progress_line(downloaded: int, total: int, compressed: bool) -> str:
         return f"\r  {format_size(downloaded)}"
     percentage = min(100.0, downloaded / total * 100)
     return f"\r  {percentage:5.1f}%  {format_size(downloaded)} / {format_size(total)}"
+
+
+def _existing_file(target: Path) -> bool:
+    if target.is_symlink() or (target.exists() and not target.is_file()):
+        raise DownloadError(f"download target is not a regular file: {target}")
+    return target.is_file()
 
 
 def _download_once(
@@ -146,13 +151,19 @@ def _download_once(
         raise DownloadError(f"could not create download directory {directory}: {exc}") from exc
 
     target = directory / sanitize_filename(expected_name, "download.vsix")
-    if target.exists() and not force:
+    if not force and _existing_file(target):
         return DownloadResult(target, skipped=True)
 
     try:
-        response = session.get(url, stream=True, timeout=timeout)
-    except requests.RequestException as exc:
+        response = session.get(
+            url, stream=True, timeout=timeout, proxies=session.proxies.copy()
+        )
+    except requests.exceptions.SSLError as exc:
+        raise DownloadError(f"could not start download: {exc}") from exc
+    except (requests.ConnectionError, requests.Timeout) as exc:
         raise RetryableError(f"could not start download: {exc}") from exc
+    except requests.RequestException as exc:
+        raise DownloadError(f"could not start download: {exc}") from exc
 
     with response:
         if response.status_code != 200:
@@ -161,7 +172,7 @@ def _download_once(
         remote_name = filename_from_content_disposition(response.headers.get("content-disposition"))
         if remote_name:
             target = directory / sanitize_filename(remote_name, target.name)
-        if target.exists() and not force:
+        if not force and _existing_file(target):
             return DownloadResult(target, skipped=True)
 
         try:
@@ -206,11 +217,22 @@ def _download_once(
                 os.chmod(temp_path, _normal_file_mode())
             verify_vsix(temp_path)
 
-            if target.exists() and not force:
-                return DownloadResult(target, skipped=True)
-
-            os.replace(temp_path, target)
-            temp_path = None
+            if force:
+                os.replace(temp_path, target)
+                temp_path = None
+            else:
+                try:
+                    if os.name == "nt":
+                        # Windows rename fails if the destination already exists.
+                        os.rename(temp_path, target)
+                        temp_path = None
+                    else:
+                        # Link atomically without replacing an existing destination.
+                        os.link(temp_path, target)
+                except FileExistsError:
+                    if _existing_file(target):
+                        return DownloadResult(target, skipped=True)
+                    raise
 
             if not quiet:
                 if sys.stderr.isatty() and total > 0:
