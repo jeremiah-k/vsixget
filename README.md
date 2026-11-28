@@ -1,79 +1,131 @@
 # vsixget
 
+[![PyPI](https://img.shields.io/pypi/v/vsixget)](https://pypi.org/project/vsixget/)
+[![CI](https://github.com/jeremiah-k/vsixget/actions/workflows/ci.yml/badge.svg)](https://github.com/jeremiah-k/vsixget/actions/workflows/ci.yml)
+
 A Python tool for downloading VSIX files from the Visual Studio Marketplace.
 
 ## Features
 
-- Download VS Code extensions directly from the marketplace
-- Support for both direct extension IDs and marketplace URLs
-- Specify version or download the latest
-- Choose download directory
-- Network connectivity checking before downloads
-- Automatic retry logic with progressive delays
-- Real-time download progress with MB and percentage indicators
-- Reliable file integrity verification
-- Universal package downloads for maximum compatibility
+- Downloads the latest version by default, with no prompt
+- Accepts `publisher.extension`, Marketplace URLs, and `vscode:extension/...` URIs
+- Platform-aware downloads with automatic host detection
+- Optional explicit version, target platform, or universal build
+- Streaming progress, transient-failure retries, and VSIX manifest verification
+- Safe file naming from the Marketplace response, with skip/force handling
+- Quiet mode for scripts
+
+## Requirements
+
+- Python 3.11 or newer
 
 ## Installation
 
-### From PyPI (Recommended)
-
-**Using pipx (recommended for CLI tools):**
+### From PyPI (recommended)
 
 ```bash
 pipx install vsixget
 ```
 
-**Using pip:**
+or:
 
 ```bash
 pip install vsixget
 ```
 
-> **Note:** [pipx](https://pipx.pypa.io/stable/) is recommended for installing CLI tools as it creates isolated environments and makes the tools available globally. If you don't have pipx installed, see the [pipx installation guide](https://pipx.pypa.io/stable/installation/).
+[pipx](https://pipx.pypa.io/stable/) is recommended for CLI tools because it keeps
+the tool in an isolated environment and puts `vsixget` on your PATH.
 
-### From Source
+### From source
 
 ```bash
-# Clone the repository
 git clone https://github.com/jeremiah-k/vsixget.git
 cd vsixget
-
-# Install in development mode
-pipx install -e .
+python -m venv .venv
+. .venv/bin/activate
+pip install -e ".[test]"
 ```
 
 ## Usage
 
 ```bash
-# Basic usage
-vsixget publisher.extension
+# Latest version, no prompt
+vsixget CodeRabbit.coderabbit-vscode
 
-# Download latest version without prompting
-vsixget --latest publisher.extension
+# Marketplace URL
+vsixget "https://marketplace.visualstudio.com/items?itemName=ms-python.python"
 
-# Specify version
-vsixget -v 1.2.3 publisher.extension
-
-# Specify download directory
-vsixget -d ~/Downloads publisher.extension
-
-# Download from marketplace URL
-vsixget https://marketplace.visualstudio.com/items?itemName=publisher.extension
-```
-
-## Examples
-
-```bash
-# Download the Python extension
-vsixget ms-python.python
-
-# Download latest version without prompting
-vsixget --latest ms-python.python
-
-# Download a specific version of the Python extension
+# Specific extension version
 vsixget -v 2023.4.1 ms-python.python
 
-# Download the Augment extension to the Downloads directory
-vsixget -d ~/Downloads augment.vscode-augment
+# Choose a version interactively
+vsixget -i ms-python.python
+
+# Choose a download directory
+vsixget -d ~/Downloads ms-python.python
+
+# Download a build for another platform
+vsixget --target-platform win32-x64 ms-vscode.cpptools
+
+# Force the newest universal build
+vsixget --universal ms-vscode.cpptools
+
+# Overwrite an existing file, or suppress output
+vsixget --force ms-python.python
+vsixget --quiet ms-python.python
+
+# Show the installed vsixget version
+vsixget --version
 ```
+
+`-v/--extension-version` sets the extension version; `--version` prints the
+`vsixget` version.
+
+## Behavior
+
+- **Latest by default.** No Enter key or `--latest` is required. `--latest` is
+  still accepted for compatibility, but cannot be combined with `-v`.
+- **Platform-aware.** The tool reads the Marketplace's latest build for each target
+  platform and downloads the newest one matching the current host, even if another
+  platform has a newer version. If no matching platform build exists, it falls back
+  to the newest universal build when available. With `-v` and no platform override,
+  historical builds are searched for the requested version. Use
+  `--target-platform` for a specific build and `--universal` for maximum
+  compatibility.
+- **Safe filenames.** The filename from the Marketplace `Content-Disposition` header
+  is used when present, so platform-specific packages keep their `@linux-x64`-style
+  suffix.
+- **Existing files are skipped.** Pass `--force` to overwrite. On POSIX, safe
+  no-overwrite publication requires a filesystem that supports hard links.
+- **Private file mode (POSIX).** Downloads keep the temporary file's `0600`
+  permissions; run `chmod` on the VSIX if it needs to be shared.
+- **Progress goes to stderr; the final path goes to stdout.** `--quiet` suppresses
+  both.
+- **Exit codes:** `0` success, `1` download or runtime failure, `2` usage error,
+  `3` extension/version/platform not found, `130` cancelled.
+
+## Development
+
+```bash
+python -m venv .venv
+. .venv/bin/activate
+pip install -e ".[test]"
+pytest
+ruff check .
+ruff format --check .
+```
+
+The test suite mocks the Marketplace and never requires network access. The
+`integration` marker is reserved for optional real-Marketplace tests.
+
+Trunk and Renovate configurations are checked in. Run `.trunk/trunk check`
+for the same lint suite locally; Trunk pin annotations feed the Renovate
+custom manager.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).

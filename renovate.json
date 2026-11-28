@@ -1,0 +1,70 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:best-practices"],
+  "forkProcessing": "enabled",
+  "mode": "full",
+  "enabledManagers": ["pep621", "github-actions", "custom.regex"],
+  "timezone": "America/Chicago",
+  "updateNotScheduled": true,
+  "dependencyDashboard": {
+    "enabled": true,
+    "title": "Dependency Updates (vsixget)"
+  },
+  "automerge": false,
+  "automergeType": "pr",
+  "platformAutomerge": false,
+  "separateMajorMinor": true,
+  "prConcurrentLimit": 0,
+  "prHourlyLimit": 0,
+  "customDatasources": {
+    "trunk-cli": {
+      "defaultRegistryUrlTemplate": "https://trunk.io/releases/latest",
+      "format": "yaml",
+      "transformTemplates": ["{\"releases\":[{\"version\": $string(version)}]}"]
+    }
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track Trunk CLI, plugins and linters from their declared upstream package sources",
+      "managerFilePatterns": ["/^\\.trunk/trunk\\.yaml$/"],
+      "matchStrings": [
+        "(?:@|version:\\s+|ref:\\s+v?)(?<currentValue>[0-9][^\\s]*)\\s+# renovate: datasource=(?<datasource>[a-z.-]+) depName=(?<depName>[^\\s]+)"
+      ],
+      "extractVersionTemplate": "^v?(?<version>.*)$"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Automerge all non-major dependency updates",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest",
+        "pinDigest",
+        "lockFileMaintenance"
+      ],
+      "automerge": true,
+      "minimumReleaseAge": "12 hours"
+    },
+    {
+      "description": "Review coordinated Trunk tool updates together",
+      "matchFileNames": [".trunk/trunk.yaml"],
+      "groupName": "Trunk toolchain",
+      "automerge": false
+    },
+    {
+      "description": "requires-python is a deliberate support floor, not a pinnable version",
+      "matchDepTypes": ["requires-python"],
+      "enabled": false
+    },
+    {
+      "description": "CI python-version values follow the deliberate test matrix",
+      "matchDepTypes": ["uses-with"],
+      "matchDepNames": ["python"],
+      "enabled": false
+    }
+  ],
+  "rebaseWhen": "behind-base-branch"
+}

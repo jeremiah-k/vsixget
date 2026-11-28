@@ -1,37 +1,50 @@
-# This file controls the behavior of Trunk: https://docs.trunk.io/cli
-# To learn more about the format of this file, see https://docs.trunk.io/reference/trunk-yaml
+# Tool versions live here; Python policy lives in pyproject.toml.
 version: 0.1
 cli:
-  version: 1.24.0
-# Trunk provides extensibility via plugins. (https://docs.trunk.io/plugins)
+  version: 1.29.0 # renovate: datasource=custom.trunk-cli depName=trunk-cli
 plugins:
   sources:
     - id: trunk
-      ref: v1.7.1
+      ref: v1.11.0 # renovate: datasource=github-tags depName=trunk-io/plugins
       uri: https://github.com/trunk-io/plugins
-# Many linters and tools depend on runtimes - configure them here. (https://docs.trunk.io/runtimes)
 runtimes:
   enabled:
-    - go@1.21.0
     - node@22.16.0
-    - python@3.10.8
-# This is the section where you manage your linters. (https://docs.trunk.io/check/configuration)
+    - python@3.14.4
 lint:
   enabled:
-    - actionlint@1.7.7
-    - checkov@3.2.454
-    - taplo@0.9.3
-    - yamllint@1.37.1
-    - bandit@1.8.6
-    - black@25.1.0
+    - black@26.10.1 # renovate: datasource=pypi depName=black
+    - checkov@3.4.11 # renovate: datasource=pypi depName=checkov
+    - isort@9.0.2 # renovate: datasource=pypi depName=isort
+    - pinact@5.0.2 # renovate: datasource=github-releases depName=suzuki-shunsuke/pinact
+    - prettier@3.10.1 # renovate: datasource=npm depName=prettier
+    - taplo@0.10.0 # renovate: datasource=github-releases depName=tamasfe/taplo
+    - actionlint@1.7.12 # renovate: datasource=github-releases depName=rhysd/actionlint
+    - bandit@1.9.4 # renovate: datasource=pypi depName=bandit
     - git-diff-check
-    - isort@6.0.1
-    - markdownlint@0.45.0
-    - prettier@3.6.2
-    - ruff@0.12.5
-    - shellcheck@0.10.0
-    - shfmt@3.6.0
-    - trufflehog@3.90.2
+    - markdownlint@0.50.1 # renovate: datasource=npm depName=markdownlint-cli
+    - renovate@45.3.2 # renovate: datasource=npm depName=renovate
+    - ruff@0.17.6 # renovate: datasource=pypi depName=ruff
+    - trufflehog@3.100.1 # renovate: datasource=github-releases depName=trufflesecurity/trufflehog
+    - yamllint@1.38.0 # renovate: datasource=pypi depName=yamllint
+  definitions:
+    - name: pinact
+      commands:
+        - name: lint
+          run: pinact run --format sarif --no-api ${target}
+          output: sarif
+          success_codes:
+            - 0
+            - 1
+            - 2
+          batch: true
+          read_output_from: stdout
+          is_security: true
+          disable_upstream: true
+  ignore:
+    - linters: [bandit]
+      paths:
+        - tests/**
 actions:
   disabled:
     - trunk-announce

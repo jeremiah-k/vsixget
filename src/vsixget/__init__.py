@@ -1,9 +1,12 @@
-"""
-vsixget - A Python tool for downloading VSIX files from the Visual Studio Marketplace.
-"""
+"""vsixget - download VSIX files from the Visual Studio Marketplace."""
 
-__version__ = "0.1.0"
+from __future__ import annotations
 
-from .downloader import main
+from importlib.metadata import PackageNotFoundError, version
 
-__all__ = ["main", "__version__"]
+try:
+    __version__ = version("vsixget")
+except PackageNotFoundError:  # pragma: no cover - source tree without an install
+    __version__ = "0.0.0+unknown"
+
+__all__ = ["__version__"]
